@@ -35,6 +35,8 @@ def do_profile(follow=[]):
 
 
 
+'''
+# Old Version
 def get_factor(factors, codes_list, start_time, end_time):
     """
     函数目的：从数据库中获取特定因子的数据。
@@ -52,16 +54,100 @@ def get_factor(factors, codes_list, start_time, end_time):
     """
 
     # 创建一个到数据库的连接
-    engine = create_engine("mysql+pymysql://weizheng:yunpan123@124.220.177.115:3306/factordb")
+    engine = create_engine("mysql+pymysql://hwh:gtja20@124.220.177.115:3306/factordb")
 
     # 将股票代码和因子列表转换为 SQL 查询的一部分
     codes_sql = " , ".join(["'" + code + "'" for code in codes_list])
     factors_sql = " , ".join([" " + factor + " " for factor in factors])
+    
 
     # 执行 SQL 查询并将结果读取为 pandas DataFrame
     df = pd.read_sql_query("SELECT S_INFO_WINDCODE , TRADE_DT ,"+factors_sql+" FROM FACTOR WHERE S_INFO_WINDCODE in ("+codes_sql+" ) and TRADE_DT> '"+start_time+"' and TRADE_DT< '"+end_time+"'", engine)
 
     return df
+
+'''
+'''
+# WH V1
+def get_factor(factors, codes_list, start_time, end_time):
+    """
+    函数目的：从数据库中获取特定因子的数据。
+
+    参数:
+    factors: 包含你想要获取的因子的列表。例如：['ROC12','jumpdown_5']。
+    codes_list: 包含你想要获取的股票代码的列表。例如：['000009.SZ','000010.SZ']。
+    start_time: 你想要获取数据的开始日期，格式为 'yyyymmdd'。例如：'20000101'。
+    end_time: 你想要获取数据的结束日期，格式为 'yyyymmdd'。例如：'20191231'。
+
+    输出:
+    df: 一个pandas DataFrame，其中包含了请求的数据。
+    """
+    # 确保 factors 和 codes_list 是列表
+    if not isinstance(factors, list):
+        factors = [factors]
+    if not isinstance(codes_list, list):
+        codes_list = [codes_list]
+
+    # 创建一个到数据库的连接
+    engine = create_engine("mysql+pymysql://hwh:gtja20@124.220.177.115:3306/factordb")
+
+    # 构造安全的 SQL 查询
+    factors_sql = ", ".join([f"`{factor}`" for factor in factors])  # 使用反引号防止 SQL 错误
+    codes_sql = ", ".join([f"'{code}'" for code in codes_list])
+
+    query = f"""
+    SELECT S_INFO_WINDCODE, TRADE_DT, {factors_sql}
+    FROM FACTOR
+    WHERE S_INFO_WINDCODE IN ({codes_sql})
+    AND TRADE_DT >= '{start_time}'
+    AND TRADE_DT <= '{end_time}'
+    """
+
+    # 执行 SQL 查询并将结果读取为 pandas DataFrame
+    df = pd.read_sql_query(query, engine)
+    return df
+'''
+
+
+def get_factor(factors, codes_list, start_time, end_time):
+    """
+    从数据库中获取特定因子的数据。
+
+    参数:
+    factors: 包含你想要获取的因子的列表。例如：['ROC12','jumpdown_5']。
+    codes_list: 包含你想要获取的股票代码的列表。例如：['000009.SZ','000010.SZ']。
+    start_time: 你想要获取数据的开始日期，格式为 'yyyymmdd'。例如：'20000101'。
+    end_time: 你想要获取数据的结束日期，格式为 'yyyymmdd'。例如：'20191231'。
+
+    输出:
+    df: 一个pandas DataFrame，其中包含了请求的数据。
+    """
+    # 创建一个到数据库的连接
+    engine = create_engine("mysql+pymysql://hwh:gtja20@124.220.177.115:3306/factordb")
+
+    # 使用参数化查询以防止SQL注入
+    factors_placeholder = ', '.join([f"`{factor}`" for factor in factors])
+    codes_placeholder = ', '.join(['%s' for _ in codes_list])
+
+    query = f"""
+    SELECT S_INFO_WINDCODE, TRADE_DT, {factors_placeholder}
+    FROM FACTOR
+    WHERE S_INFO_WINDCODE IN ({codes_placeholder})
+    AND TRADE_DT >= %s
+    AND TRADE_DT <= %s
+    """
+
+    # 合并所有参数，包括股票代码和日期
+    params = tuple(codes_list + [start_time, end_time])  # 使params成为元组
+
+    # 执行查询并将结果读取为pandas DataFrame
+    df = pd.read_sql_query(query, engine, params=[params])  # 将params放入列表中
+
+    return df
+
+
+
+
 
 
 
@@ -149,7 +235,7 @@ def write_to_sql(factor_df):
     """
 
     # 创建数据库连接
-    engine =create_engine("mysql+pymysql://weizheng:yunpan123@124.220.177.115:3306/factordb")
+    engine = create_engine("mysql+pymysql://hwh:gtja20@124.220.177.115:3306/factordb")
     # engine =create_engine("mysql+pymysql://root:123456asd@localhost:3306/factordb")
     # 将factor_df写入到名为'TMP'的临时表中
     factor_df.to_sql('TMP', con=engine, index=False, if_exists='replace')
